@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.material.icons.extended)
+    implementation(platform(libs.verid.bom))
     implementation(libs.verid.face.capture)
     implementation(libs.verid.face.detection.retinaface)
     implementation(libs.verid.face.recognition.arcface.cloud)
