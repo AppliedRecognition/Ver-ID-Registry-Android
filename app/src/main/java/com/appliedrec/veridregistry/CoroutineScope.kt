@@ -104,7 +104,7 @@ fun CoroutineScope.captureAndIdentifyFace(
             val identificationResult = when (captureResult) {
                 is FaceCaptureSessionResult.Success -> {
                     val capturedFace = captureResult.capturedFaces.first()
-                    val result = createFaceTemplateRegistry(activity) { registry, dao ->
+                    val result = createFaceTemplateRegistry(activity, identificationThreshold) { registry, dao ->
                         registry.identifyFace(capturedFace.face, capturedFace.image)
                     }
                     Result.success(result)
@@ -227,7 +227,7 @@ private suspend fun registerFace(
 
 private suspend fun <T> createFaceTemplateRegistry(
     context: Context,
-    identificationThreshold: Float = 0.5f,
+    identificationThreshold: Float? = null,
     block: suspend (FaceTemplateRegistry<FaceTemplateVersionV24, FloatArray>, dao: TaggedFaceDao) -> T
 ): T {
     val dao: TaggedFaceDao = AppDatabaseProvider
@@ -242,7 +242,11 @@ private suspend fun <T> createFaceTemplateRegistry(
     }
     return FaceRecognitionArcFace(context).use { faceRecognition ->
         val config = FaceTemplateRegistry
-            .Configuration(identificationThreshold = identificationThreshold)
+            .Configuration(
+                faceRecognition.defaultThreshold,
+                identificationThreshold = identificationThreshold ?: faceRecognition.defaultThreshold,
+                faceRecognition.defaultThreshold
+            )
         FaceTemplateRegistry(
             faceRecognition,
             templates,
