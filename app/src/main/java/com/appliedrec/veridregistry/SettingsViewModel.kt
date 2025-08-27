@@ -8,14 +8,25 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.appliedrec.verid3.common.use
+import com.appliedrec.verid3.facerecognition.arcface.cloud.FaceRecognitionArcFace
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.appliedrec.verid3.facetemplateregistry.FaceTemplateRegistry
+import kotlinx.coroutines.runBlocking
 
 val Context.settingsDataStore by preferencesDataStore(name = "settings")
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val defaults = FaceTemplateRegistry.Configuration()
+    private val defaults = runBlocking {
+        FaceRecognitionArcFace(application).use { rec ->
+            FaceTemplateRegistry.Configuration(
+                rec.defaultThreshold,
+                rec.defaultThreshold,
+                rec.defaultThreshold
+            )
+        }
+    }
     private val dataStore: DataStore<Preferences> = application.settingsDataStore
 
     val useBackCamera: StateFlow<Boolean> = dataStore.data.map {
