@@ -8,8 +8,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.appliedrec.facerecognition.r300.cloud.FaceRecognitionR300
 import com.appliedrec.verid3.common.use
-import com.appliedrec.verid3.facerecognition.arcface.cloud.FaceRecognitionArcFace
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.appliedrec.verid3.facetemplateregistry.FaceTemplateRegistry
@@ -19,7 +19,7 @@ val Context.settingsDataStore by preferencesDataStore(name = "settings")
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val defaults = runBlocking {
-        FaceRecognitionArcFace(application).use { rec ->
+        FaceRecognitionR300(application).use { rec ->
             FaceTemplateRegistry.Configuration(
                 rec.defaultThreshold,
                 rec.defaultThreshold,
