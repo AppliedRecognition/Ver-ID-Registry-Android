@@ -3,6 +3,9 @@ package com.appliedrec.veridregistry
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
+import com.appliedrec.facerecognition.r300.cloud.FaceRecognitionR300
+import com.appliedrec.facerecognition.r300.core.FaceTemplateR300
+import com.appliedrec.facerecognition.r300.core.FaceTemplateVersionR300
 import com.appliedrec.verid3.common.FaceTemplate
 import com.appliedrec.verid3.common.serialization.toBitmap
 import com.appliedrec.verid3.common.use
@@ -15,9 +18,6 @@ import com.appliedrec.verid3.facecapture.LivenessDetectionPlugin
 import com.appliedrec.verid3.facecapture.ui.FaceCaptureConfiguration
 import com.appliedrec.verid3.facecapture.ui.FaceCaptureViewConfiguration
 import com.appliedrec.verid3.facedetection.retinaface.FaceDetectionRetinaFace
-import com.appliedrec.verid3.facerecognition.arcface.cloud.FaceRecognitionArcFace
-import com.appliedrec.verid3.facerecognition.arcface.core.FaceTemplateArcFace
-import com.appliedrec.verid3.facerecognition.arcface.core.FaceTemplateVersionV24
 import com.appliedrec.verid3.facetemplateregistry.FaceTemplateRegistry
 import com.appliedrec.verid3.facetemplateregistry.IdentificationResult
 import com.appliedrec.verid3.facetemplateregistry.TaggedFaceTemplate
@@ -93,7 +93,7 @@ fun CoroutineScope.captureAndIdentifyFace(
     useBackCamera: Boolean = false,
     enableSpoofDetection: Boolean = true,
     identificationThreshold: Float = 0.5f,
-    onIdentification: (Result<List<IdentificationResult<FaceTemplateVersionV24, FloatArray>>>?) -> Unit
+    onIdentification: (Result<List<IdentificationResult<FaceTemplateVersionR300, FloatArray>>>?) -> Unit
 ) {
     launch(Dispatchers.Default) {
         try {
@@ -104,7 +104,7 @@ fun CoroutineScope.captureAndIdentifyFace(
             val identificationResult = when (captureResult) {
                 is FaceCaptureSessionResult.Success -> {
                     val capturedFace = captureResult.capturedFaces.first()
-                    val result = createFaceTemplateRegistry(activity, identificationThreshold) { registry, dao ->
+                    val result = createFaceTemplateRegistry(activity, identificationThreshold) { registry, _ ->
                         registry.identifyFace(capturedFace.face, capturedFace.image)
                     }
                     Result.success(result)
@@ -130,7 +130,7 @@ fun CoroutineScope.captureAndRegisterFace(
     userName: String,
     useBackCamera: Boolean = false,
     enableSpoofDetection: Boolean = true,
-    onResult: (Result<FaceTemplate<FaceTemplateVersionV24, FloatArray>>?, Bitmap?) -> Unit
+    onResult: (Result<FaceTemplate<FaceTemplateVersionR300, FloatArray>>?, Bitmap?) -> Unit
 ) {
     launch(Dispatchers.Default) {
         try {
@@ -184,7 +184,7 @@ fun CoroutineScope.registerFace(
     context: Context,
     capturedFace: CapturedFace,
     userName: String,
-    onResult: (Result<FaceTemplate<FaceTemplateVersionV24, FloatArray>>) -> Unit
+    onResult: (Result<FaceTemplate<FaceTemplateVersionR300, FloatArray>>) -> Unit
 ) {
     launch(Dispatchers.Default) {
         try {
@@ -204,11 +204,11 @@ fun CoroutineScope.registerFace(
 
 private suspend fun registerFace(
     context: Context,
-    registry: FaceTemplateRegistry<FaceTemplateVersionV24, FloatArray>,
+    registry: FaceTemplateRegistry<FaceTemplateVersionR300, FloatArray>,
     dao: TaggedFaceDao,
     capturedFace: CapturedFace,
     userName: String
-): FaceTemplate<FaceTemplateVersionV24, FloatArray> {
+): FaceTemplate<FaceTemplateVersionR300, FloatArray> {
     val results = registry.registerFace(capturedFace.face, capturedFace.image, userName)
     val templateId = dao.insert(TaggedFaceEntity(
         templateData = results.data,
@@ -228,7 +228,7 @@ private suspend fun registerFace(
 private suspend fun <T> createFaceTemplateRegistry(
     context: Context,
     identificationThreshold: Float? = null,
-    block: suspend (FaceTemplateRegistry<FaceTemplateVersionV24, FloatArray>, dao: TaggedFaceDao) -> T
+    block: suspend (FaceTemplateRegistry<FaceTemplateVersionR300, FloatArray>, dao: TaggedFaceDao) -> T
 ): T {
     val dao: TaggedFaceDao = AppDatabaseProvider
         .getDatabase(context)
@@ -236,11 +236,11 @@ private suspend fun <T> createFaceTemplateRegistry(
     val taggedFaces = dao.getAll().first()
     val templates = taggedFaces.map {
         TaggedFaceTemplate(
-            FaceTemplateArcFace(it.templateData),
+            FaceTemplateR300(it.templateData),
             it.userName
         )
     }
-    return FaceRecognitionArcFace(context).use { faceRecognition ->
+    return FaceRecognitionR300(context).use { faceRecognition ->
         val config = FaceTemplateRegistry
             .Configuration(
                 faceRecognition.defaultThreshold,

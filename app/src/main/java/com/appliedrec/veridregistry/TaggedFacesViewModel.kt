@@ -4,8 +4,8 @@ import android.app.Application
 import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.appliedrec.facerecognition.r300.core.FaceTemplateVersionR300
 import com.appliedrec.verid3.common.FaceTemplate
-import com.appliedrec.verid3.facerecognition.arcface.core.FaceTemplateVersionV24
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +28,7 @@ class TaggedFacesViewModel(application: Application) : AndroidViewModel(applicat
             )
 
     fun insert(
-        faceTemplate: FaceTemplate<FaceTemplateVersionV24, FloatArray>,
+        faceTemplate: FaceTemplate<FaceTemplateVersionR300, FloatArray>,
         userName: String,
         image: Bitmap?
     ) = viewModelScope.launch(Dispatchers.IO) {

@@ -17,8 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.appliedrec.facerecognition.r300.core.FaceTemplateVersionR300
 import com.appliedrec.verid3.common.FaceTemplate
-import com.appliedrec.verid3.facerecognition.arcface.core.FaceTemplateVersionV24
 import com.appliedrec.verid3.facetemplateregistry.FaceTemplateRegistryException
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,7 +55,7 @@ fun RegistrationErrorDialog(
                         TextButton(
                             onClick = {
                                 facesViewModel.insert(
-                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionV24, FloatArray>,
+                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
                                     err.registeredIdentifier,
                                     capturedFaceImage
                                 )
@@ -68,7 +68,7 @@ fun RegistrationErrorDialog(
                         TextButton(
                             onClick = {
                                 facesViewModel.insert(
-                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionV24, FloatArray>,
+                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
                                     enteredName,
                                     capturedFaceImage
                                 )
@@ -84,7 +84,7 @@ fun RegistrationErrorDialog(
                         TextButton(
                             onClick = {
                                 facesViewModel.insert(
-                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionV24, FloatArray>,
+                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
                                     enteredName,
                                     capturedFaceImage
                                 )

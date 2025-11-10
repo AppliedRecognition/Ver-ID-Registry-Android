@@ -19,8 +19,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Rate-limited endpoint and API key
+        manifestPlaceholders["VERID_R300_SERVER_URL"] = "https://9qz4sdd2ga.execute-api.us-east-1.amazonaws.com/Prod/extract_face_templates"
+        manifestPlaceholders["VERID_R300_API_KEY"] = "BK1aJ1vpb08InLtOsdmhL6ZiRDJtq0H89nPqVuzB"
     }
 
+    defaultConfig {
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -59,7 +64,7 @@ dependencies {
     implementation(platform(libs.verid.bom))
     implementation(libs.verid.face.capture)
     implementation(libs.verid.face.detection.retinaface)
-    implementation(libs.verid.face.recognition.arcface.cloud)
+    implementation(libs.verid.face.recognition.r300.cloud)
     implementation(libs.verid.face.template.registry)
     implementation(libs.verid.serialization)
     implementation(libs.spoof.device.detection.cloud)
