@@ -10,12 +10,10 @@ import kotlinx.coroutines.launch
 
 class UserCountViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val dao: TaggedFaceDao = AppDatabaseProvider
-        .getDatabase(application)
-        .taggedFaceDao()
+    private val repository = TaggedFaceRepository(application)
 
     val userCount: StateFlow<Int> =
-        dao.getUserCount()
+        repository.getUserCount()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -24,7 +22,7 @@ class UserCountViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteAll() {
         viewModelScope.launch {
-            dao.deleteAll()
+            repository.deleteAll()
         }
     }
 }

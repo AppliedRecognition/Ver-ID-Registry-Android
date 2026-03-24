@@ -1,7 +1,6 @@
 package com.appliedrec.veridregistry
 
 import android.graphics.Bitmap
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,9 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.appliedrec.facerecognition.r300.core.FaceTemplateVersionR300
 import com.appliedrec.verid3.common.FaceTemplate
 import com.appliedrec.verid3.facetemplateregistry.FaceTemplateRegistryException
@@ -27,15 +24,10 @@ fun RegistrationErrorDialog(
     error: Throwable,
     enteredName: String,
     capturedFaceImage: Bitmap?,
-    onNavigate: (String) -> Unit,
+    onSaveAsUser: (faceTemplate: FaceTemplate<FaceTemplateVersionR300, FloatArray>, userName: String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    val facesViewModel: TaggedFacesViewModel = viewModel(context as ComponentActivity)
-    val capturedFaceViewModel: CapturedFaceViewModel = viewModel(context as ComponentActivity)
-    BasicAlertDialog(
-        onDismissRequest = onDismiss
-    ) {
+    BasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.medium,
             tonalElevation = 6.dp,
@@ -48,48 +40,38 @@ fun RegistrationErrorDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text("Registration failed", modifier = Modifier.padding(bottom = 16.dp))
-                Text("${error!!.localizedMessage}")
+                Text("${error.localizedMessage}")
+                @Suppress("UNCHECKED_CAST")
                 when (error) {
                     is FaceTemplateRegistryException.SimilarFaceAlreadyRegistered -> {
-                        val err = error as FaceTemplateRegistryException.SimilarFaceAlreadyRegistered
                         TextButton(
                             onClick = {
-                                facesViewModel.insert(
-                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
-                                    err.registeredIdentifier,
-                                    capturedFaceImage
+                                onSaveAsUser(
+                                    error.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
+                                    error.registeredIdentifier
                                 )
-                                capturedFaceViewModel.capturedFace = null
-                                onNavigate(err.registeredIdentifier)
                             }
                         ) {
-                            Text("Add face to ${err.registeredIdentifier}")
+                            Text("Add face to ${error.registeredIdentifier}")
                         }
                         TextButton(
                             onClick = {
-                                facesViewModel.insert(
-                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
-                                    enteredName,
-                                    capturedFaceImage
+                                onSaveAsUser(
+                                    error.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
+                                    enteredName
                                 )
-                                capturedFaceViewModel.capturedFace = null
-                                onNavigate(enteredName)
                             }
                         ) {
                             Text("Save as $enteredName anyway")
                         }
                     }
                     is FaceTemplateRegistryException.FaceDoesNotMatchExisting -> {
-                        val err = error as FaceTemplateRegistryException.FaceDoesNotMatchExisting
                         TextButton(
                             onClick = {
-                                facesViewModel.insert(
-                                    err.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
-                                    enteredName,
-                                    capturedFaceImage
+                                onSaveAsUser(
+                                    error.faceTemplate as FaceTemplate<FaceTemplateVersionR300, FloatArray>,
+                                    enteredName
                                 )
-                                capturedFaceViewModel.capturedFace = null
-                                onNavigate(enteredName)
                             }
                         ) {
                             Text("Save anyway")
@@ -97,9 +79,7 @@ fun RegistrationErrorDialog(
                     }
                     else -> {}
                 }
-                TextButton(
-                    onClick = onDismiss
-                ) {
+                TextButton(onClick = onDismiss) {
                     Text("Dismiss")
                 }
             }

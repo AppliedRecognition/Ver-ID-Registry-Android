@@ -10,12 +10,10 @@ import kotlinx.coroutines.launch
 
 class UsersViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val dao: TaggedFaceDao = AppDatabaseProvider
-        .getDatabase(application)
-        .taggedFaceDao()
+    private val repository = TaggedFaceRepository(application)
 
     val users: StateFlow<List<TaggedFaceEntity>> =
-        dao.getLatestUserFaces()
+        repository.getLatestUserFaces()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
@@ -24,7 +22,7 @@ class UsersViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteUser(userName: String) {
         viewModelScope.launch {
-            dao.deleteUser(userName)
+            repository.deleteUser(userName)
         }
     }
 }
