@@ -1,5 +1,6 @@
 package com.appliedrec.veridregistry
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,6 +34,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,53 +56,41 @@ import androidx.navigation.NavController
 import java.util.Date
 
 @Composable
-fun UsersView(
-    navController: NavController
-) {
-    val userFacesViewModel: UsersViewModel = viewModel()
-    val taggedFaces by userFacesViewModel.users.collectAsStateWithLifecycle()
+fun UsersView(navController: NavController) {
+    val usersViewModel: UsersViewModel = viewModel()
+    val taggedFaces by usersViewModel.users.collectAsStateWithLifecycle()
     val context = LocalContext.current.applicationContext
     var userToDelete by remember { mutableStateOf<String?>(null) }
+
     UsersViewContent(
         taggedFaces = taggedFaces,
         onDelete = { name -> userToDelete = name },
         faceImagePainter = { faceId ->
-            ImageUtils.getFaceImage(context, faceId)?.asImageBitmap()?.let { bitmap ->
-                BitmapPainter(bitmap)
+            val bitmap by produceState<Bitmap?>(null, faceId) {
+                value = ImageUtils.getFaceImage(context, faceId)
             }
+            bitmap?.asImageBitmap()?.let { BitmapPainter(it) }
+        },
+        onSelect = { name ->
+            navController.navigate("user/${Uri.encode(name)}?editable=false")
         }
-    ) { name ->
-        navController.navigate("user/${Uri.encode(name)}?editable=false")
-    }
+    )
+
     if (userToDelete != null) {
         AlertDialog(
-            onDismissRequest = {
-                userToDelete = null
-            },
+            onDismissRequest = { userToDelete = null },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        userToDelete?.let { userName ->
-                            userFacesViewModel.deleteUser(userName)
-                        }
+                        userToDelete?.let { usersViewModel.deleteUser(it) }
                         userToDelete = null
                     }
-                ) {
-                    Text("Delete")
-                }
+                ) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        userToDelete = null
-                    }
-                ) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { userToDelete = null }) { Text("Cancel") }
             },
-            title = {
-                Text("Delete $userToDelete?")
-            }
+            title = { Text("Delete $userToDelete?") }
         )
     }
 }
@@ -115,23 +105,17 @@ private fun UsersViewContent(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Users") }
-            )
+            TopAppBar(title = { Text("Users") })
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.padding(paddingValues)
-        ) {
+        LazyColumn(modifier = Modifier.padding(paddingValues)) {
             items(items = taggedFaces, key = { it.id }) { face ->
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart) {
                             onDelete(face.userName)
-                            false
-                        } else {
-                            false
                         }
+                        false
                     }
                 )
                 SwipeToDismissBox(
@@ -158,9 +142,7 @@ private fun UsersViewContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.surface)
-                            .clickable {
-                                onSelect(face.userName)
-                            }
+                            .clickable { onSelect(face.userName) }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -194,18 +176,8 @@ private fun UsersViewContent(
 fun UsersViewPreview() {
     UsersViewContent(
         listOf(
-            TaggedFaceEntity(
-                id = 1,
-                dateAdded = Date(),
-                userName = "Happy Koala",
-                templateData = floatArrayOf()
-            ),
-            TaggedFaceEntity(
-                id = 2,
-                dateAdded = Date(),
-                userName = "Grumpy Giraffe",
-                templateData = floatArrayOf()
-            )
+            TaggedFaceEntity(id = 1, dateAdded = Date(), userName = "Happy Koala", templateData = floatArrayOf()),
+            TaggedFaceEntity(id = 2, dateAdded = Date(), userName = "Grumpy Giraffe", templateData = floatArrayOf())
         ),
         onDelete = {},
         faceImagePainter = { rememberVectorPainter(Icons.Default.Person) }

@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -16,12 +15,10 @@ class UserFacesViewModel(
     private val userName: String
 ) : AndroidViewModel(application) {
 
-    private val dao: TaggedFaceDao = AppDatabaseProvider
-        .getDatabase(application)
-        .taggedFaceDao()
+    private val repository = TaggedFaceRepository(application)
 
     val taggedFaces: StateFlow<List<TaggedFaceEntity>> =
-        dao.getUserFaces(userName)
+        repository.getUserFaces(userName)
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
@@ -29,8 +26,8 @@ class UserFacesViewModel(
             )
 
     fun deleteFace(id: Long) {
-        viewModelScope.launch(Dispatchers.IO) {
-            dao.delete(id)
+        viewModelScope.launch {
+            repository.deleteFace(id)
         }
     }
 }

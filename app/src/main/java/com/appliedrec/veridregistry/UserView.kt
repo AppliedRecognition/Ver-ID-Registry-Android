@@ -44,10 +44,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,39 +72,40 @@ import java.time.format.FormatStyle
 import java.util.Date
 
 private val dateFormatter =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)
-        .withZone(ZoneId.systemDefault())
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withZone(ZoneId.systemDefault())
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserView(
-    userName: String,
-    editable: Boolean = true
-) {
+fun UserView(userName: String, editable: Boolean = true) {
     val application = LocalContext.current.applicationContext as Application
+    val activity = LocalActivity.current as ComponentActivity
     val userFacesViewModel: UserFacesViewModel = viewModel(
         factory = UserFacesViewModelFactory(application, userName)
     )
-    val userFaces by userFacesViewModel.taggedFaces.collectAsStateWithLifecycle()
-    var faceToDelete by remember { mutableStateOf<Long?>(null) }
-    val coroutineScope = rememberCoroutineScope()
-    val activity = LocalActivity.current as ComponentActivity
+    val faceSessionViewModel: FaceSessionViewModel = viewModel(activity)
     val settingsViewModel: SettingsViewModel = viewModel()
-    var isRegistering by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<Throwable?>(null) }
-    var capturedFaceImage by remember { mutableStateOf<Bitmap?>(null) }
-    if (isRegistering) {
+    val userFaces by userFacesViewModel.taggedFaces.collectAsStateWithLifecycle()
+    val sessionState by faceSessionViewModel.sessionState.collectAsStateWithLifecycle()
+    var faceToDelete by remember { mutableStateOf<Long?>(null) }
+
+    // Clear the session state once registration for this user completes; the
+    // face list updates automatically via the repository Flow.
+    LaunchedEffect(sessionState) {
+        if (sessionState is FaceSessionState.RegistrationComplete) {
+            faceSessionViewModel.clearState()
+        }
+    }
+
+    val isWorking = sessionState is FaceSessionState.Capturing ||
+            sessionState is FaceSessionState.Registering
+
+    if (isWorking) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = {
-                        Text(text = userName)
-                    },
+                    title = { Text(text = userName) },
                     actions = {
-                        IconButton(
-                            onClick = {},
-                            enabled = false
-                        ) {
+                        IconButton(onClick = {}, enabled = false) {
                             Icon(Icons.Filled.Add, "Register new face")
                         }
                     }
@@ -116,93 +118,77 @@ fun UserView(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 100.dp)
-                        .align(Alignment.Center)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 100.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                    CircularProgressIndicator(modifier = Modifier.padding(bottom = 16.dp))
                     Text("Registering")
                 }
             }
         }
     } else {
-        val onAddFace = if (editable) {
+        val onAddFace: (() -> Unit)? = if (editable) {
             {
-                val useBackCamera = settingsViewModel.useBackCamera.value
-                val enableSpoofDetection = settingsViewModel.enableSpoofDetection.value
-                isRegistering = true
-                coroutineScope.captureAndRegisterFace(
-                    activity,
-                    userName,
-                    useBackCamera,
-                    enableSpoofDetection
-                ) { captureResult, image ->
-                    isRegistering = false
-                    capturedFaceImage = image
-                    error = captureResult?.exceptionOrNull()
-                }
+                faceSessionViewModel.captureAndRegisterFace(
+                    activity = activity,
+                    userName = userName,
+                    useBackCamera = settingsViewModel.useBackCamera.value,
+                    enableSpoofDetection = settingsViewModel.enableSpoofDetection.value
+                )
             }
         } else null
-        val onDelete: ((Long) -> Unit)? = if (editable) {
-            { faceId ->
-                faceToDelete = faceId
-            }
-        } else null
+
         UserViewContent(
             userName = userName,
             faces = userFaces,
-            onDelete = onDelete,
+            onDelete = if (editable) { faceId -> faceToDelete = faceId } else null,
             onAddFace = onAddFace,
             faceImagePainter = { faceId ->
-                ImageUtils.getFaceImage(application, faceId)?.asImageBitmap()?.let { bitmap ->
-                    BitmapPainter(bitmap)
+                val bitmap by produceState<Bitmap?>(null, faceId) {
+                    value = ImageUtils.getFaceImage(application, faceId)
                 }
+                bitmap?.asImageBitmap()?.let { BitmapPainter(it) }
             }
         )
+
+        if (sessionState is FaceSessionState.RegistrationError) {
+            val errorState = sessionState as FaceSessionState.RegistrationError
+            RegistrationErrorDialog(
+                error = errorState.error,
+                enteredName = errorState.enteredName,
+                capturedFaceImage = errorState.capturedFaceImage,
+                onSaveAsUser = { template, saveAsUser ->
+                    faceSessionViewModel.forceInsert(template, saveAsUser, errorState.capturedFaceImage)
+                },
+                onDismiss = { faceSessionViewModel.clearState() }
+            )
+        }
+
+        if (sessionState is FaceSessionState.CaptureError) {
+            val errorState = sessionState as FaceSessionState.CaptureError
+            AlertDialog(
+                onDismissRequest = { faceSessionViewModel.clearState() },
+                title = { Text("Error") },
+                text = { Text(errorState.error.localizedMessage ?: "An error occurred") },
+                confirmButton = {
+                    TextButton(onClick = { faceSessionViewModel.clearState() }) { Text("Dismiss") }
+                }
+            )
+        }
     }
+
     if (faceToDelete != null) {
         AlertDialog(
-            onDismissRequest = {
-                faceToDelete = null
-            },
+            onDismissRequest = { faceToDelete = null },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        faceToDelete?.let { faceId ->
-                            userFacesViewModel.deleteFace(faceId)
-                        }
-                        faceToDelete = null
-                    }
-                ) {
-                    Text("Delete")
-                }
+                TextButton(onClick = {
+                    faceToDelete?.let { userFacesViewModel.deleteFace(it) }
+                    faceToDelete = null
+                }) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        faceToDelete = null
-                    }
-                ) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { faceToDelete = null }) { Text("Cancel") }
             },
-            title = {
-                Text("Delete face?")
-            }
-        )
-    }
-    if (error != null) {
-        RegistrationErrorDialog(
-            error = error!!,
-            enteredName = userName,
-            capturedFaceImage = capturedFaceImage,
-            onNavigate = { name ->
-                error = null
-            },
-            onDismiss = { error = null }
+            title = { Text("Delete face?") }
         )
     }
 }
@@ -229,17 +215,10 @@ fun UserViewContent(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
                 ),
-                title = {
-                    Text(
-                        text =userName,
-                        color = Color.White
-                    )
-                },
+                title = { Text(text = userName, color = Color.White) },
                 actions = {
                     onAddFace?.let { onAdd ->
-                        IconButton(
-                            onClick = onAdd
-                        ) {
+                        IconButton(onClick = onAdd) {
                             Icon(
                                 imageVector = Icons.Filled.Add,
                                 contentDescription = "Register new face",
@@ -250,7 +229,7 @@ fun UserViewContent(
                 }
             )
         }
-    ) { paddingValues ->
+    ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -267,9 +246,7 @@ fun UserViewContent(
                                 painter = painter,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1f)
+                                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
                             )
                         }
                     }
@@ -278,11 +255,9 @@ fun UserViewContent(
                     val dismissState = rememberSwipeToDismissBoxState(
                         confirmValueChange = { value ->
                             if (value == SwipeToDismissBoxValue.EndToStart) {
-                                onDelete?.let { it(face.id) }
-                                false
-                            } else {
-                                false
+                                onDelete?.invoke(face.id)
                             }
+                            false
                         }
                     )
                     SwipeToDismissBox(
@@ -317,9 +292,7 @@ fun UserViewContent(
                                     painter = painter,
                                     contentDescription = "Image of face",
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(64.dp)
-                                        .clip(CircleShape)
+                                    modifier = Modifier.size(64.dp).clip(CircleShape)
                                 )
                             }
                             Spacer(Modifier.width(8.dp))

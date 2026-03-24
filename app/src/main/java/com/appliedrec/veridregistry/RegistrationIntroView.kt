@@ -15,78 +15,71 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 
 @Composable
-fun RegistrationIntroView(
-    navController: NavController
-) {
-    val coroutineScope = rememberCoroutineScope()
+fun RegistrationIntroView(navController: NavController) {
     val activity = LocalActivity.current as ComponentActivity
-    val capturedFaceViewModel: CapturedFaceViewModel = viewModel(activity)
+    val faceSessionViewModel: FaceSessionViewModel = viewModel(activity)
     val settingsViewModel: SettingsViewModel = viewModel()
-    var error: String? by remember { mutableStateOf(null) }
-    RegistrationIntroViewContent {
-        val useBackCamera = settingsViewModel.useBackCamera.value
-        val enableSpoofDetection = settingsViewModel.enableSpoofDetection.value
-        coroutineScope.captureFace(
-            activity = activity,
-            useBackCamera = useBackCamera,
-            enableSpoofDetection = enableSpoofDetection
-        ) { capturedFace ->
-            try {
-                val face = capturedFace.getOrThrow()
-                capturedFaceViewModel.capturedFace = face
-                navController.navigate("registration_review")
-            } catch (e: Exception) {
-                error = "Face capture failed: ${e.localizedMessage}"
+    val capturedFace by faceSessionViewModel.capturedFace.collectAsStateWithLifecycle()
+    val sessionState by faceSessionViewModel.sessionState.collectAsStateWithLifecycle()
+    var captureError by remember { mutableStateOf<String?>(null) }
+
+    // Navigate to review as soon as a face is captured; pop this screen off the
+    // back stack so pressing Back from review goes straight to Home.
+    LaunchedEffect(capturedFace) {
+        if (capturedFace != null) {
+            navController.navigate("registration_review") {
+                popUpTo("register") { inclusive = true }
             }
         }
     }
-    if (error != null) {
+
+    LaunchedEffect(sessionState) {
+        if (sessionState is FaceSessionState.CaptureError) {
+            captureError = "Face capture failed: ${(sessionState as FaceSessionState.CaptureError).error.localizedMessage}"
+            faceSessionViewModel.clearState()
+        }
+    }
+
+    RegistrationIntroViewContent {
+        faceSessionViewModel.startCapture(
+            activity = activity,
+            useBackCamera = settingsViewModel.useBackCamera.value,
+            enableSpoofDetection = settingsViewModel.enableSpoofDetection.value
+        )
+    }
+
+    if (captureError != null) {
         AlertDialog(
-            onDismissRequest = {
-                error = null
-            },
+            onDismissRequest = { captureError = null },
             confirmButton = {
-                TextButton(
-                    onClick = { error = null }
-                ) {
-                    Text("OK")
-                }
+                TextButton(onClick = { captureError = null }) { Text("OK") }
             },
-            title = {
-                Text("Error")
-            },
-            text = {
-                Text(error!!)
-            }
+            title = { Text("Error") },
+            text = { Text(captureError!!) }
         )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistrationIntroViewContent(
-    onStartCapture: () -> Unit
-) {
+fun RegistrationIntroViewContent(onStartCapture: () -> Unit) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text("Registration")
-                }
-            )
+            TopAppBar(title = { Text("Registration") })
         }
     ) { paddingValues ->
         Column(
@@ -101,10 +94,12 @@ fun RegistrationIntroViewContent(
                 text = "The face template will then be used to sign you in to the app.",
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            Button(onClick = {
-                onStartCapture()
-            }) {
-                Icon(Icons.Default.CameraAlt, contentDescription = "Capture face", modifier = Modifier.padding(end = 8.dp))
+            Button(onClick = onStartCapture) {
+                Icon(
+                    Icons.Default.CameraAlt,
+                    contentDescription = "Capture face",
+                    modifier = Modifier.padding(end = 8.dp)
+                )
                 Text("Capture face")
             }
         }
@@ -114,5 +109,5 @@ fun RegistrationIntroViewContent(
 @Preview
 @Composable
 fun RegistrationIntroViewPreview() {
-    RegistrationIntroViewContent {  }
+    RegistrationIntroViewContent { }
 }
