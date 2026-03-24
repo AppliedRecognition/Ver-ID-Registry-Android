@@ -47,7 +47,7 @@ private fun createFaceCaptureConfiguration(
             (if (enableSpoofDetection) {
                 val spoofDetection = SpoofDeviceDetection(activity)
                 listOf(
-                    LivenessDetectionPlugin(arrayOf(spoofDetection)) as FaceTrackingPlugin<Any>
+                    LivenessDetectionPlugin(arrayOf(spoofDetection))
                 )
             } else {
                 listOf()
