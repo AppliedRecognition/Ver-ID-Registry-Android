@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -194,7 +195,6 @@ fun UserView(userName: String, editable: Boolean = true) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun UserViewContent(
     userName: String,
@@ -229,7 +229,7 @@ fun UserViewContent(
                 }
             )
         }
-    ) { _ ->
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -240,14 +240,20 @@ fun UserViewContent(
         ) {
             LazyColumn {
                 item(key = "header") {
-                    faces.firstOrNull()?.id?.let { faceId ->
-                        faceImagePainter(faceId)?.let { painter ->
-                            Image(
-                                painter = painter,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-                            )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = paddingValues.calculateTopPadding())
+                    ) {
+                        faces.firstOrNull()?.id?.let { faceId ->
+                            faceImagePainter(faceId)?.let { painter ->
+                                Image(
+                                    painter = painter,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                                )
+                            }
                         }
                     }
                 }
